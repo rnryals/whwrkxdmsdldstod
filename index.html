@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인생 게임: 정해진 종말</title>
+    <style>
+        :root {
+            --bg-color: #0d0f12;
+            --panel-bg: rgba(22, 27, 34, 0.85);
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-red: #f85149;
+            --accent-green: #3fb950;
+            --accent-blue: #58a6ff;
+            --accent-yellow: #d29922;
+            --font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 30%, rgba(248, 81, 73, 0.05) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(88, 166, 255, 0.03) 0%, transparent 50%);
+        }
+
+        /* Scanline Filter for Retro-Dark Vibe */
+        body::after {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 680px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            position: relative;
+            z-index: 10;
+            margin: 20px;
+        }
+
+        /* Header UI */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+        }
+
+        .title-group h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .title-badge {
+            font-size: 0.75rem;
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+
+        .life-counter {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .life-counter span {
+            color: var(--accent-yellow);
+            font-weight: bold;
+        }
+
+        /* Status Bars Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .stat-label .val {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .bar-bg {
+            height: 8px;
+            background: #21262d;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 50%;
+            border-radius: 4px;
+            transition: width 0.4s ease, background-color 0.4s ease;
+        }
+
+        #bar-hp { background-color: var(--accent-green); }
+        #bar-mental { background-color: var(--accent-blue); }
+        #bar-money { background-color: var(--accent-yellow); }
+        #bar-stress { background-color: var(--accent-red); }
+
+        /* Story Display Box */
+        .story-card {
+            background: rgba(13, 15, 18, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .age-tag {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .stage-title {
+            font-size: 0.9rem;
+            color: var(--accent-blue);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .story-text {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #f0f6fc;
+            word-break: keep-all;
+        }
+
+        /* Choice Action Buttons */
+        .choices-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn-choice {
+            background: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 16px 20px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            outline: none;
+        }
+
+        .btn-choice:hover {
+            background: #30363d;
+            border-color: #8b949e;
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        .btn-choice:active {
+            transform: translateY(0);
+        }
+
+        .choice-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: 10px;
+        }
+
+        /* Game Over Modal / Screen Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .ending-card {
+            background: #161b22;
+            border: 1px solid var(--accent-red);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            padding: 32px;
+            text-align: center;
+            box-shadow: 0 0 40px rgba(248, 81, 73, 0.2);
+            transform: scale(0.9);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-overlay.active .ending-card {
+            transform: scale(1);
+        }
+
+        .ending-badge {
+            display: inline-block;
+            background: rgba(248, 81, 73, 0.15);
+            color: var(--accent-red);
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(248, 81, 73, 0.4);
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        .ending-title {
+            font-size: 1.6rem;
+            color: #fff;
+            margin-bottom: 16px;
+            word-break: keep-all;
+        }
+
+        .ending-desc {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+            word-break: keep-all;
+            background: rgba(0,0,0,0.3);
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .ending-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 0;
+        }
+
+        .btn-restart {
+            width: 100%;
+            background: var(--accent-red);
+            color: #fff;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+
+        .btn-restart:hover {
+            background: #d73a49;
+        }
+
+        .btn-restart:active {
+            transform: scale(0.98);
+        }
+
+        /* Responsive tweaks */
+        @media (max-width: 480px) {
+            .game-container {
+                padding: 20px;
+                margin: 10px;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            .ending-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="title-group">
+                <h1>인생을 사는 게임</h1>
+                <span class="title-badge">불가피한 종말</span>
+            </div>
+            <div class="life-counter">회차: <span id="life-count">1</span>회목</div>
+        </div>
+
+        <!-- Status Bars -->
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">
+                    <span>건강 (HP)</span>
+                    <span class="val" id="val-hp">80</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-hp"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">
+                    <span>멘탈 (Mental)</span>
+                    <span class="val" id="val-mental">80</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-mental"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">
+                    <span>자산 (Money)</span>
+                    <span class="val" id="val-money">30</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-money"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">
+                    <span>스트레스 (Stress)</span>
+                    <span class="val" id="val-stress">20</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" id="bar-stress"></div></div>
+            </div>
+        </div>
+
+        <!-- Story Display -->
+        <div class="story-card">
+            <div class="age-tag" id="age-tag">AGE: 07</div>
+            <div class="stage-title" id="stage-title">유년기</div>
+            <div class="story-text" id="story-text">
+                이야기가 곧 시작됩니다...
+            </div>
+        </div>
+
+        <!-- Action Choices -->
+        <div class="choices-group" id="choices-group">
+            <!-- Buttons injected by JS -->
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div class="modal-overlay" id="ending-modal">
+        <div class="ending-card">
+            <span class="ending-badge">GAME OVER</span>
+            <h2 class="ending-title" id="ending-title">비극적인 결말</h2>
+            <div class="ending-desc" id="ending-desc">
+                당신의 인생은 상상도 못 한 허무한 이유로 끝을 맞이했습니다.
+            </div>
+            <div class="ending-stats">
+                <div>최종 나이: <b id="final-age">0</b>세</div>
+                <div>누적 스탯: <b id="final-score">0</b></div>
+            </div>
+            <button class="btn-restart" id="btn-restart">다시 태어나기 (Reborn)</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           GAME SYSTEM & DATA STRUCTURE
+           ========================================================================== */
+        
+        let gameState = {
+            lifeCount: 1,
+            age: 7,
+            hp: 80,
+            mental: 80,
+            money: 30,
+            stress: 20,
+            currentStageIdx: 0
+        };
+
+        // Audio Effects Generator (Using Web Audio API so no external assets are needed)
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+            playBeep(freq = 440, duration = 0.1) {
+                try {
+                    this.init();
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            },
+            playBadSound() {
+                try {
+                    this.init();
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.6);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.6);
+                } catch(e) {}
+            }
+        };
+
+        /* BAD ENDINGS POOL */
+        const BAD_ENDINGS = {
+            // Stat-triggered Bad Endings
+            EXHAUSTION: {
+                title: "💀 과로로 인한 갑작스러운 심장마비",
+                desc: "치열하게 살아가며 스트레스를 견뎌냈지만, 당신의 몸은 견디지 못했습니다. 자리를 지키던 책상 위에서 홀로 조용히 숨을 거두었습니다."
+            },
+            MENTAL_BREAK: {
+                title: "🌀 현실 감각 상실 및 자아 이탈",
+                desc: "너덜너덜해진 멘탈을 주체하지 못하고 산으로 들어갔습니다. 자연인이 되어 버섯을 잘못 주워 먹고 세상과 하직했습니다."
+            },
+            BANKRUPT: {
+                title: "💸 극심한 빈곤과 골목길의 비극",
+                desc: "잔고가 0이 된 후 길거리에서 추위와 싸우다 굴러온 고양이 사료 통에 발이 걸려 넘어져 지나가던 자전거에 치였습니다."
+            },
+            HEALTH_FAIL: {
+                title: "🏥 면역력 붕괴로 인한 신종 감염",
+                desc: "건강 관리를 완전히 소홀히 한 결과, 세계 최초로 비둘기 독감의 인체 감염 0호 환자가 되어 인류 의학 발전에 기여하고 떠났습니다."
+            },
+
+            // Story Choice Inevitable Endings
+            STORY_LUCKY_TRAGEDY: {
+                title: "⚡ 벼락 맞은 로또 당첨자",
+                desc: "모든 돈을 주식과 코인에 넣고 대성공을 거두어 100억을 벌었습니다! 너무 기쁜 나머지 옥상에서 소리를 지르다가 번개에 맞았습니다."
+            },
+            STORY_OVERACHIEVER: {
+                title: "📄 명함 날카로움에 의한 비극",
+                desc: "완벽한 스펙을 쌓아 최연소 임원이 되었습니다. 새로 나온 고급 명함을 꺼내다 손가락을 베였는데, 하필 그 종이에 치명적인 독성 박테리아가 가득했습니다."
+            },
+            STORY_RETIREMENT_FAIL: {
+                title: "👴 평화로운 노후의 아이러니",
+                desc: "평생을 아끼고 신중하게 살아 완벽한 노후 자금을 모았습니다. 첫 안락한 휴식을 위해 푹신한 리클라이너 소파에 앉았으나, 너무 깊게 잠들어 소파 속으로 흡수되었습니다(?)."
+            },
+            STORY_TRUCK: {
+                title: "🚚 클래식 이세계 이송 트럭",
+                desc: "당신은 지극히 평범하고 도덕적인 선택을 하며 살아왔습니다. 하지만 길을 건너던 중 어디선가 나타난 덤프트럭이 당신을 치고 지나갔습니다."
+            },
+            STORY_AI_REPLACEMENT: {
+                title: "🤖 인공지능 청소 로봇의 반란",
+                desc: "최첨단 AI 가전제품을 모두 구입하여 편안한 삶을 누렸습니다. 자고 있던 당신을 거대한 먼지 덩어리로 오인한 초고성능 청소 로봇에게 흡입당했습니다."
+            }
+        };
+
+        /* STORY STAGES & BRANCHES */
+        const STORY_STAGES = [
+            {
+                age: 8,
+                title: "유년기 : 인생의 시작점",
+                text: "초등학교에 입학했습니다. 쉬는 시간에 친구들과 무엇을 하며 놀까요?",
+                choices: [
+                    {
+                        text: "🎮 밖에서 흙장난을 하며 튼튼하게 자란다.",
+                        effects: { hp: 15, mental: 5, money: 0, stress: -5 },
+                        nextStage: 1
+                    },
+                    {
+                        text: "📚 방 안에서 조용히 책을 읽고 공부를 시작한다.",
+                        effects: { hp: -5, mental: -5, money: 10, stress: 15 },
+                        nextStage: 1
+                    },
+                    {
+                        text: "🍭 문방구에서 불량식품에 모든 용돈을 탕진한다.",
+                        effects: { hp: -10, mental: 20, money: -20, stress: -10 },
+                        nextStage: 1
+                    }
+                ]
+            },
+            {
+                age: 18,
+                title: "청소년기 : 진로의 기로",
+                text: "수능과 진로 결정을 앞둔 18세. 압박감이 밀려옵니다. 당신의 선택은?",
+                choices: [
+                    {
+                        text: "🔥 밤을 새우며 입시 코딩과 공부에 올인한다.",
+                        effects: { hp: -20, mental: -15, money: 20, stress: 25 },
+                        nextStage: 2
+                    },
+                    {
+                        text: "🎸 밴드 부원을 모집해 락스타의 꿈을 꾼다.",
+                        effects: { hp: 5, mental: 25, money: -15, stress: -15 },
+                        nextStage: 2
+                    },
+                    {
+                        text: "🪙 친구 말을 듣고 아르바이트비 전부를 암호화폐에 넣는다.",
+                        effects: { hp: 0, mental: -30, money: 40, stress: 30 },
+                        nextStage: 2
+                    }
+                ]
+            },
+            {
+                age: 27,
+                title: "청년기 : 사회 초년생의 서막",
+                text: "첫 직장에 입사했습니다. 상사가 불합리한 야근을 지시하며 커피 심부름을 시킵니다.",
+                choices: [
+                    {
+                        text: "🙇‍♂️ '네, 알겠습니다!' 영혼을 바쳐 야근한다.",
+                        effects: { hp: -25, mental: -20, money: 30, stress: 35 },
+                        nextStage: 3
+                    },
+                    {
+                        text: "💥 '제가 왜요?' 사직서를 품에 안고 당당히 퇴사한다.",
+                        effects: { hp: 10, mental: 20, money: -30, stress: -20 },
+                        nextStage: 3
+                    },
+                    {
+                        text: "📈 회사 몰래 부업으로 위험한 자산 투자를 시작한다.",
+                        effects: { hp: -10, mental: -10, money: 50, stress: 20 },
+                        // Special trigger chance for early random tragic bad end
+                        specialEnd: "STORY_LUCKY_TRAGEDY",
+                        chance: 0.3
+                    }
+                ]
+            },
+            {
+                age: 42,
+                title: "중년기 : 삶의 중반전",
+                text: "어느덧 40대. 몸은 예전 같지 않고, 내 집 마련과 금융 위기의 압박이 다가옵니다.",
+                choices: [
+                    {
+                        text: "🏥 몸을 돌보기 위해 비싼 건강검진과 영양제를 섭취한다.",
+                        effects: { hp: 30, mental: 10, money: -40, stress: -10 },
+                        nextStage: 4
+                    },
+                    {
+                        text: "🚗 그동안 고생한 나를 위해 영끌해서 슈퍼카를 산다.",
+                        effects: { hp: -5, mental: 40, money: -60, stress: 10 },
+                        nextStage: 4
+                    },
+                    {
+                        text: "🏢 승진을 위해 상사의 온갖 비위를 맞춰주며 살아간다.",
+                        effects: { hp: -20, mental: -25, money: 35, stress: 30 },
+                        specialEnd: "STORY_OVERACHIEVER",
+                        chance: 0.4
+                    }
+                ]
+            },
+            {
+                age: 65,
+                title: "노년기 : 황혼의 안식처",
+                text: "은퇴 후 정년 삶을 맞이했습니다. 남은 여생을 어떻게 보내시겠습니까?",
+                choices: [
+                    {
+                        text: "🏡 전원주택을 지어 조용히 농사를 지으며 산다.",
+                        effects: { hp: 10, mental: 10, money: -20, stress: -20 },
+                        specialEnd: "STORY_TRUCK" // Bad end anyway
+                    },
+                    {
+                        text: "🤖 스마트홈 시스템으로 최첨단 노후 생활을 즐긴다.",
+                        effects: { hp: 0, mental: 20, money: -30, stress: -10 },
+                        specialEnd: "STORY_AI_REPLACEMENT"
+                    },
+                    {
+                        text: "💰 모든 통장을 정리해 자식들에게 나누어준다.",
+                        effects: { hp: -10, mental: -10, money: -80, stress: 10 },
+                        specialEnd: "STORY_RETIREMENT_FAIL"
+                    }
+                ]
+            }
+        ];
+
+        /* ==========================================================================
+           GAME LOGIC FUNCTIONS
+           ========================================================================== */
+
+        // DOM elements
+        const elLifeCount = document.getElementById('life-count');
+        const elValHp = document.getElementById('val-hp');
+        const elValMental = document.getElementById('val-mental');
+        const elValMoney = document.getElementById('val-money');
+        const elValStress = document.getElementById('val-stress');
+
+        const elBarHp = document.getElementById('bar-hp');
+        const elBarMental = document.getElementById('bar-mental');
+        const elBarMoney = document.getElementById('bar-money');
+        const elBarStress = document.getElementById('bar-stress');
+
+        const elAgeTag = document.getElementById('age-tag');
+        const elStageTitle = document.getElementById('stage-title');
+        const elStoryText = document.getElementById('story-text');
+        const elChoicesGroup = document.getElementById('choices-group');
+
+        const elEndingModal = document.getElementById('ending-modal');
+        const elEndingTitle = document.getElementById('ending-title');
+        const elEndingDesc = document.getElementById('ending-desc');
+        const elFinalAge = document.getElementById('final-age');
+        const elFinalScore = document.getElementById('final-score');
+        const btnRestart = document.getElementById('btn-restart');
+
+        // Initialize Game
+        function initGame() {
+            gameState.age = 7;
+            gameState.hp = 70;
+            gameState.mental = 70;
+            gameState.money = 30;
+            gameState.stress = 20;
+            gameState.currentStageIdx = 0;
+
+            updateUI();
+            renderStage(0);
+        }
+
+        // Clamp stats between 0 and 100
+        function clamp(val) {
+            return Math.max(0, Math.min(100, val));
+        }
+
+        // Update Gauge Bars and Numbers
+        function updateUI() {
+            elValHp.textContent = gameState.hp;
+            elValMental.textContent = gameState.mental;
+            elValMoney.textContent = gameState.money;
+            elValStress.textContent = gameState.stress;
+
+            elBarHp.style.width = gameState.hp + '%';
+            elBarMental.style.width = gameState.mental + '%';
+            elBarMoney.style.width = gameState.money + '%';
+            elBarStress.style.width = gameState.stress + '%';
+
+            // Visual feedback on low/high critical conditions
+            elBarHp.style.backgroundColor = gameState.hp < 25 ? 'var(--accent-red)' : 'var(--accent-green)';
+            elBarMental.style.backgroundColor = gameState.mental < 25 ? 'var(--accent-red)' : 'var(--accent-blue)';
+            elBarMoney.style.backgroundColor = gameState.money < 10 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+            elBarStress.style.backgroundColor = gameState.stress > 75 ? 'var(--accent-red)' : 'var(--accent-yellow)';
+        }
+
+        // Render Current Story Stage
+        function renderStage(idx) {
+            const stage = STORY_STAGES[idx];
+            gameState.age = stage.age;
+
+            elAgeTag.textContent = `AGE: ${String(stage.age).padStart(2, '0')}`;
+            elStageTitle.textContent = stage.title;
+            elStoryText.textContent = stage.text;
+
+            // Clear choices
+            elChoicesGroup.innerHTML = '';
+
+            // Add new buttons
+            stage.choices.forEach((choice, cIdx) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-choice';
+                btn.innerHTML = `
+                    <span>${choice.text}</span>
+                    <span class="choice-hint">선택하기 ➔</span>
+                `;
+                btn.addEventListener('click', () => handleChoice(choice));
+                elChoicesGroup.appendChild(btn);
+            });
+        }
+
+        // Handle Player Choice
+        function handleChoice(choice) {
+            AudioFX.playBeep(520, 0.08);
+
+            // Apply Stat Changes
+            if (choice.effects) {
+                gameState.hp = clamp(gameState.hp + choice.effects.hp);
+                gameState.mental = clamp(gameState.mental + choice.effects.mental);
+                gameState.money = clamp(gameState.money + choice.effects.money);
+                gameState.stress = clamp(gameState.stress + choice.effects.stress);
+            }
+
+            updateUI();
+
+            // 1. Check Passive Stat Death Conditions First
+            let triggerEnding = checkStatDeath();
+
+            // 2. Check Event Special Trigger Ending (Random Tragic Death)
+            if (!triggerEnding && choice.specialEnd && Math.random() < (choice.chance || 1.0)) {
+                triggerEnding = BAD_ENDINGS[choice.specialEnd];
+            }
+
+            // 3. Trigger Game Over or Advance
+            if (triggerEnding) {
+                setTimeout(() => {
+                    showGameOver(triggerEnding);
+                }, 300);
+            } else {
+                gameState.currentStageIdx++;
+                if (gameState.currentStageIdx < STORY_STAGES.length) {
+                    renderStage(gameState.currentStageIdx);
+                } else {
+                    // Fallback death if survived all stages (Impossible Life)
+                    showGameOver(BAD_ENDINGS.STORY_TRUCK);
+                }
+            }
+        }
+
+        // Check if stats crossed fatal thresholds
+        function checkStatDeath() {
+            if (gameState.hp <= 0) return BAD_ENDINGS.HEALTH_FAIL;
+            if (gameState.stress >= 100) return BAD_ENDINGS.EXHAUSTION;
+            if (gameState.mental <= 0) return BAD_ENDINGS.MENTAL_BREAK;
+            if (gameState.money <= 0) return BAD_ENDINGS.BANKRUPT;
+            return null;
+        }
+
+        // Display Game Over Screen
+        function showGameOver(endingObj) {
+            AudioFX.playBadSound();
+
+            elEndingTitle.textContent = endingObj.title;
+            elEndingDesc.textContent = endingObj.desc;
+            elFinalAge.textContent = gameState.age;
+            
+            // Calculate a meaningless life score
+            const totalScore = (gameState.hp + gameState.mental + gameState.money) - gameState.stress;
+            elFinalScore.textContent = Math.max(0, totalScore * 12);
+
+            elEndingModal.classList.add('active');
+        }
+
+        // Restart Game
+        btnRestart.addEventListener('click', () => {
+            AudioFX.playBeep(600, 0.1);
+            gameState.lifeCount++;
+            elLifeCount.textContent = gameState.lifeCount;
+            elEndingModal.classList.remove('active');
+            initGame();
+        });
+
+        // Start Game On Load
+        window.addEventListener('DOMContentLoaded', () => {
+            initGame();
+        });
+    </script>
+</body>
+</html>
